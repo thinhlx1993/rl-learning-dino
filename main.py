@@ -27,14 +27,14 @@ print(model.summary())
 # FIRST STEP: Knowing what each action does (Observing)
 
 # Parameters
-D = deque()  # Register where the actions will be stored
 observetime = 100  # Number of timesteps we will be acting on the game and observing results
-epsilon = 0.7  # Probability of doing a random move
+epsilon = 1  # Probability of doing a random move
 gamma = 0.9  # Discounted future reward. How much we care about steps further in time
 mb_size = 100  # Learning minibatch size
 num_episode = 10000
 
 for episode in range(num_episode):
+    D = deque()  # Register where the actions will be stored
     env.reset()  # Game begins
     observation, reward, done, _ = env.step(1)
     # (Formatting issues) Making the observation the first element of a batch of inputs
@@ -86,9 +86,9 @@ for episode in range(num_episode):
         Q_sa = model.predict(state_new)
 
         if done:
-            targets[i, action] = reward
-        else:
             targets[i, action] = reward + gamma * np.max(Q_sa)
+        else:
+            targets[i, action] = reward
 
     # Train network to output the Q function
     history = model.train_on_batch(inputs, targets)

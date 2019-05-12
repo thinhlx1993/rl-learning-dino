@@ -37,14 +37,14 @@ class Controller(object):
                 self.score = reward
                 done = False
                 if action == 0:
-                    reward = 0.5
+                    reward = -1
                 else:
                     reward = 1
             else:
                 reward = -1
                 done = True
         except:
-            reward = -1
+            reward = 0
             done = False
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
