@@ -42,7 +42,7 @@ for t in range(observetime):
         Q = model.predict(state)          # Q-values predictions
         action = np.argmax(Q)             # Move with highest Q-value is the chosen one
     observation_new, reward, done, info = env.step(action)     # See state of the game, reward... after performing the action
-    print(reward, done)
+
     obs_new = np.expand_dims(observation_new, axis=0)          # (Formatting issues)
     state_new = np.append(np.expand_dims(obs_new, axis=0), state[:, :1, :], axis=1)     # Update the input with the new state of the game
     D.append((state, action, reward, state_new, done))         # 'Remember' action and consequence
@@ -73,13 +73,16 @@ for i in range(0, mb_size):
     targets[i] = model.predict(state)
     Q_sa = model.predict(state_new)
 
+    if reward != -1:
+        print(reward)
     if done:
         targets[i, action] = reward
     else:
         targets[i, action] = reward + gamma * np.max(Q_sa)
 
     # Train network to output the Q function
-    model.train_on_batch(inputs, targets)
+    history = model.train_on_batch(inputs, targets)
+    print('loss: {}, acc: {}'.format(history[0], history[1]))
 print('Learning Finished')
 
 # THIRD STEP: Play!

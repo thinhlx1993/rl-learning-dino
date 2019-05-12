@@ -1,6 +1,9 @@
-import cv2
 import time
-import subprocess
+import cv2
+import mss
+import numpy as np
+import pytesseract
+from PIL import Image
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 
@@ -8,58 +11,65 @@ from selenium.webdriver.common.keys import Keys
 class Controller(object):
     def __init__(self):
         self.score = 0
-        self.driver = webdriver.Chrome(executable_path='chromedriver.exe')
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("--mute-audio")
+        self.driver = webdriver.Chrome(chrome_options=chrome_options, executable_path='chromedriver.exe')
+        self.body = None
         # driver.fullscreen_window()
         self.driver.get("chrome://dino")
 
     def reset(self):
-        ele = self.driver.find_element_by_tag_name('body')
-        ele.send_keys(Keys.ENTER)
+        self.body = self.driver.find_element_by_tag_name('body')
+        self.score = 0
+        self.body.send_keys(Keys.ENTER)
 
-    def step(self, action, epsilon):
-        if action >= epsilon:  # jump
-            ele = self.driver.find_element_by_tag_name('body')
-            ele.send_keys(Keys.SPACE)
+    def step(self, action):
+        if action == 1:  # jump
+            self.body.send_keys(Keys.SPACE)
 
-        filename = self.capture_screen()
-        reward = Controller.get_reward(filename)
+        image = self.screen_record_efficient()
+        reward = Controller.get_reward(image)
+
         try:
+            reward = reward.replace('o', '0')
             reward = int(reward[1:])
             if reward != self.score:
                 self.score = reward
                 done = False
+                if action == 0:
+                    reward = 0.5
+                else:
+                    reward = 1
             else:
+                reward = -1
                 done = True
         except:
             reward = -1
             done = False
-        reward = -1
-        observalbe = cv2.imread(filename, 1)
-        cv2.imshow('date', observalbe)
-        cv2.waitKey(1)
-        observalbe = observalbe[130:370, 0:928]
-        observalbe = cv2.resize(observalbe, (232, 60))
-        # observalbe = cv2.cvtColor(observalbe, cv2.COLOR_BGR2GRAY)
-        # cv2.imshow('test', observalbe)
-        # cv2.waitKey(1)
-        observalbe = observalbe/255.
-        return observalbe, reward, done, {}
+
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        image = cv2.resize(image, (50, 184))
+        image = image/255.0
+        return image.flatten(), reward, done, {}
 
     def capture_screen(self):
-        file_name = 'observable/{}.png'.format(time.time())
-        self.driver.save_screenshot(file_name)
-        return file_name
+        # file_name = 'observable/{}.png'.format(time.time())
+        image = self.driver.get_screenshot_as_png()
+        return image
 
     @staticmethod
-    def get_reward(path):
-        original = cv2.imread(path)
-        cropped_example = original[130:190, 810:930]
-        cv2.imwrite('1.png', cropped_example)
-        process = subprocess.Popen([r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe', '1.png', '1'],
-                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        process.communicate()
+    def screen_record_efficient():
+        # 920x250 windowed mode
+        mon = {"top": 250, "left": 20, "width": 920, "height": 250}
+        sct = mss.mss()
+        img = np.asarray(sct.grab(mon))
+        cv2.imshow('demo', img)
+        cv2.waitKey(1)
+        return img
 
-        with open('1.txt', 'r') as handle:
-            contents = handle.readline()
-
-        return contents
+    @staticmethod
+    def get_reward(original):
+        # cropped = original.crop((810, 130, 930, 190))
+        cropped_example = original[22:61, 818:915]
+        text = pytesseract.image_to_string(cropped_example)
+        return text
