@@ -12,23 +12,23 @@ model_path = 'saved_model.h5'
 
 
 # Create network. Input is two consecutive game states, output is Q-values of the possible moves.
-# model = Sequential()
-# model.add(Dense(1024, input_shape=(2, 9200), init='uniform', activation='relu'))
-# model.add(Flatten())  # Flatten input so as to have no problems with processing
-# model.add(Dense(128, init='uniform', activation='relu'))
-# model.add(Dense(10, init='uniform', activation='relu'))
-# model.add(Dense(2, init='uniform', activation='linear'))  # Same number of outputs as possible actions
-#
-# model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
-model = load_model(model_path)
+model = Sequential()
+model.add(Dense(1024, input_shape=(2, 9200), init='uniform', activation='relu'))
+model.add(Flatten())  # Flatten input so as to have no problems with processing
+model.add(Dense(512, init='uniform', activation='relu'))
+model.add(Dense(128, init='uniform', activation='relu'))
+model.add(Dense(2, init='uniform', activation='linear'))  # Same number of outputs as possible actions
+
+model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
+model.load_weights(model_path)
 
 # FIRST STEP: Knowing what each action does (Observing)
 
 # Parameters
-observetime = 500  # Number of timesteps we will be acting on the game and observing results
-epsilon = 1  # Probability of doing a random move
+observetime = 200  # Number of timesteps we will be acting on the game and observing results
+epsilon = 0.6  # Probability of doing a random move
 gamma = 0.9  # Discounted future reward. How much we care about steps further in time
-mb_size = 100  # Learning minibatch size
+mb_size = 50  # Learning minibatch size
 num_episode = 10000
 
 for episode in range(num_episode):
@@ -90,4 +90,4 @@ for episode in range(num_episode):
     # Train network to output the Q function
     history = model.train_on_batch(inputs, targets)
     print('loss: {}, acc: {}'.format(history[0], history[1]))
-    model.save(model_path)
+    model.save_weights(model_path)

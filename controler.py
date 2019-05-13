@@ -22,8 +22,10 @@ class Controller(object):
         self.body = self.driver.find_element_by_tag_name('body')
         self.score = 0
         self.body.send_keys(Keys.ENTER)
+        self.driver.execute_script('Runner.instance_.setSpeed(5)')
 
     def step(self, action):
+        self.driver.execute_script('Runner.instance_.setSpeed(5)')
         if action == 1:  # jump
             self.body.send_keys(Keys.SPACE)
 
@@ -37,14 +39,14 @@ class Controller(object):
                 self.score = reward
                 done = False
                 if action == 0:
-                    reward = 2
+                    reward = 10
                 else:
                     reward = 1
             else:
                 if action == 0:
-                    reward = -2
+                    reward = -10
                 else:
-                    reward = -1
+                    reward = -10
                 done = True
         except:
             reward = None
