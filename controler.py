@@ -15,6 +15,7 @@ class Controller(object):
         chrome_options.add_argument("--mute-audio")
         self.driver = webdriver.Chrome(chrome_options=chrome_options, executable_path='chromedriver.exe')
         self.body = None
+        self.sct = mss.mss()
         # driver.fullscreen_window()
         self.driver.get("chrome://dino")
 
@@ -39,37 +40,37 @@ class Controller(object):
                 self.score = reward
                 done = False
                 if action == 0:
-                    reward = 10
+                    reward = -1
                 else:
                     reward = 1
             else:
                 if action == 0:
-                    reward = -10
+                    reward = -1
                 else:
-                    reward = -10
+                    reward = -1
                 done = True
+
         except:
             reward = None
             done = False
 
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        image = cv2.resize(image, (50, 184))
+        # print('reward: {}'.format(reward))
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        image = cv2.resize(image, (460, 125))
+        cv2.imshow('demo', image)
+        cv2.waitKey(1)
         image = image/255.0
-        return image.flatten(), reward, done, {}
+        return image, reward, done, {}
 
     def capture_screen(self):
         # file_name = 'observable/{}.png'.format(time.time())
         image = self.driver.get_screenshot_as_png()
         return image
 
-    @staticmethod
-    def screen_record_efficient():
+    def screen_record_efficient(self):
         # 920x250 windowed mode
         mon = {"top": 250, "left": 20, "width": 920, "height": 250}
-        sct = mss.mss()
-        img = np.asarray(sct.grab(mon))
-        cv2.imshow('demo', img)
-        cv2.waitKey(1)
+        img = np.asarray(self.sct.grab(mon))
         return img
 
     @staticmethod
