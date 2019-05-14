@@ -16,6 +16,7 @@ class Controller(object):
         self.driver = webdriver.Chrome(chrome_options=chrome_options, executable_path='chromedriver.exe')
         self.body = None
         self.sct = mss.mss()
+        self.mon = {"top": 250, "left": 20, "width": 920, "height": 250}
         # driver.fullscreen_window()
         self.driver.get("chrome://dino")
 
@@ -23,42 +24,41 @@ class Controller(object):
         self.body = self.driver.find_element_by_tag_name('body')
         self.score = 0
         self.body.send_keys(Keys.ENTER)
-        self.driver.execute_script('Runner.instance_.setSpeed(5)')
+        # self.driver.execute_script('Runner.instance_.setSpeed(5)')
 
     def step(self, action):
-        self.driver.execute_script('Runner.instance_.setSpeed(5)')
+        # self.driver.execute_script('Runner.instance_.setSpeed(5)')
+        image_1 = self.screen_record_efficient()
+        reward_1 = Controller.get_reward(image_1)
+
         if action == 1:  # jump
             self.body.send_keys(Keys.SPACE)
 
-        image = self.screen_record_efficient()
-        reward = Controller.get_reward(image)
+        # cv2.imshow('demo1', image_1)
+        # cv2.waitKey(1)
 
-        try:
-            reward = reward.replace('o', '0')
-            reward = int(reward[1:])
-            if reward != self.score:
-                self.score = reward
-                done = False
-                if action == 0:
-                    reward = -1
-                else:
-                    reward = 1
-            else:
-                if action == 0:
-                    reward = -1
-                else:
-                    reward = -1
-                done = True
+        # time.sleep(0.1)
+        #
+        # image_2 = self.screen_record_efficient()
+        # reward_2 = Controller.get_reward(image_2)
 
-        except:
-            reward = None
+        # cv2.imshow('demo2', image_2)
+        # cv2.waitKey(1)
+
+        if reward_1 != self.score:
+            # positive action
+            self.score = reward_1
+            reward = 0.1
             done = False
+        else:
+            # negative action
+            reward = -0.1
+            done = True
 
         # print('reward: {}'.format(reward))
         # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        image = cv2.resize(image, (460, 125))
-        cv2.imshow('demo', image)
-        cv2.waitKey(1)
+        image = cv2.resize(image_1, (460, 125))
+
         image = image/255.0
         return image, reward, done, {}
 
@@ -69,8 +69,7 @@ class Controller(object):
 
     def screen_record_efficient(self):
         # 920x250 windowed mode
-        mon = {"top": 250, "left": 20, "width": 920, "height": 250}
-        img = np.asarray(self.sct.grab(mon))
+        img = np.asarray(self.sct.grab(self.mon))
         return img
 
     @staticmethod
