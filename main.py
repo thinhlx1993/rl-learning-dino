@@ -2,8 +2,8 @@
 from keras.models import Sequential  # One layer after the other
 from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D, Dropout
 from collections import deque  # For storing moves
+from sklearn.preprocessing import minmax_scale
 from controler import Controller
-from keras.models import load_model
 import numpy as np
 import random  # For sampling batches from the observations
 
@@ -28,7 +28,9 @@ model.add(Dropout(0.25))
 model.add(Flatten())
 model.add(Dense(256, activation='relu'))
 model.add(Dropout(0.5))
-model.add(Dense(1, activation='softmax'))
+model.add(Dense(128, activation='relu'))
+model.add(Dropout(0.5))
+model.add(Dense(2, activation='sigmoid'))
 
 model.compile(loss='mse', optimizer='adam', metrics=['accuracy', 'mse'])
 # model.load_weights(model_path)
@@ -36,11 +38,20 @@ model.compile(loss='mse', optimizer='adam', metrics=['accuracy', 'mse'])
 # FIRST STEP: Knowing what each action does (Observing)
 
 # Parameters
-observetime = 200  # Number of timesteps we will be acting on the game and observing results
+observetime = 100  # Number of timesteps we will be acting on the game and observing results
 epsilon = 0.6  # Probability of doing a random move
 gamma = 0.9  # Discounted future reward. How much we care about steps further in time
 mb_size = 32  # Learning minibatch size
 num_episode = 10000
+
+
+def scale_x(x, _x_max, _x_min):
+    _max = 1
+    _min = 0
+    x_std = (x - _x_min) / (_x_max - _x_min)
+    x_scaled = x_std * (_max - _min) + _min
+    return x_scaled
+
 
 for episode in range(num_episode):
     D = deque()  # Register where the actions will be stored
@@ -57,7 +68,8 @@ for episode in range(num_episode):
             action = np.random.randint(0, 2, size=1)[0]  # jump or not
         else:
             Q = model.predict(state)  # Q-values predictions
-            action = int(Q[0][0])  # Move with highest Q-value is the chosen one
+            print(Q)
+            action = np.argmax(Q)  # Move with highest Q-value is the chosen one
 
         # See state of the game, reward... after performing the action
         observation_new, reward, done, info = env.step(action)
@@ -78,7 +90,7 @@ for episode in range(num_episode):
         minibatch = random.sample(D, mb_size)  # Sample some moves
         inputs_shape = (mb_size,) + state.shape[1:]
         inputs = np.zeros(inputs_shape)
-        targets = np.zeros((mb_size, 1))
+        targets = np.zeros((mb_size, 2))
 
         for i in range(0, mb_size):
             state = minibatch[i][0]
@@ -90,14 +102,12 @@ for episode in range(num_episode):
             # Build Bellman equation for the Q function
             inputs[i:i + 1] = np.expand_dims(state, axis=0)
             targets[i] = model.predict(state)
-            Q_sa = model.predict(state_new)
 
             if done:
-                targets[i] = reward + gamma * float(Q_sa[0][0])
-            else:
-                targets[i] = reward
+                targets[i, 0] = targets[i, 0] + reward
+                targets[i, 1] = targets[i, 1] + reward
 
         # Train network to output the Q function
         history = model.train_on_batch(inputs, targets)
-        print('loss: {}, acc: {}, mse: {}'.format(history[0], history[1], history[2]))
+        print('loss: {}, acc: {}'.format(history[0], history[1]))
         model.save_weights(model_path)
