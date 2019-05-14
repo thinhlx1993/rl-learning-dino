@@ -158,5 +158,6 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-!/saved_model.h5
+observable
+saved_model.h5
 /saved_model.h5
