@@ -8,14 +8,12 @@ import numpy as np
 import random  # For sampling batches from the observations
 
 env = Controller()  # Choose game (any in the gym should work)
-model_path = 'saved_model.h5'
+model_path = 'saved_model_1.h5'
 
 
 # Create network. Input is two consecutive game states, output is Q-values of the possible moves.
 model = Sequential()
-# input: 100x100 images with 3 channels -> (100, 100, 3) tensors.
-# this applies 32 convolution filters of size 3x3 each.
-model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(125, 460, 4)))
+model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(125, 460, 3)))
 model.add(Conv2D(32, (3, 3), activation='relu'))
 model.add(MaxPooling2D(pool_size=(2, 2)))
 model.add(Dropout(0.25))
@@ -33,15 +31,16 @@ model.add(Dropout(0.5))
 model.add(Dense(2, activation='linear'))
 
 model.compile(loss='mse', optimizer='adam', metrics=['accuracy', 'mse'])
-model.load_weights(model_path)
+
+# model.load_weights(model_path)
 
 # FIRST STEP: Knowing what each action does (Observing)
 
 # Parameters
-observetime = 200  # Number of timesteps we will be acting on the game and observing results
+observetime = 100  # Number of timesteps we will be acting on the game and observing results
 epsilon = 0.6  # Probability of doing a random move
 gamma = 0.9  # Discounted future reward. How much we care about steps further in time
-mb_size = 32  # Learning minibatch size
+mb_size = 25  # Learning minibatch size
 num_episode = 10000
 
 
@@ -64,12 +63,12 @@ for episode in range(num_episode):
     # state = np.stack((obs, obs), axis=1)
     state = obs
     for t in range(observetime):
-        if np.random.rand() <= epsilon:
-            action = np.random.randint(0, 2, size=1)[0]  # jump or not
-        else:
-            Q = model.predict(state)  # Q-values predictions
-            print(Q)
-            action = np.argmax(Q)  # Move with highest Q-value is the chosen one
+        # if np.random.rand() <= epsilon:
+        action = np.random.randint(0, 2, size=1)[0]  # jump or not
+        # else:
+            # Q = model.predict(state)  # Q-values predictions
+            # print(Q, np.argmax(Q[0]))
+            # action = np.argmax(Q[0])  # Move with highest Q-value is the chosen one
 
         # See state of the game, reward... after performing the action
         observation_new, reward, done, info = env.step(action)
@@ -86,6 +85,7 @@ for episode in range(num_episode):
                 # (Formatting issues) Making the observation the first element of a batch of inputs
                 obs = np.expand_dims(observation, axis=0)
                 state = obs
+
     if len(D) > mb_size:
         minibatch = random.sample(D, mb_size)  # Sample some moves
         inputs_shape = (mb_size,) + state.shape[1:]
@@ -105,7 +105,7 @@ for episode in range(num_episode):
             inputs[i: i+1] = state
             targets[i] = model.predict(state)
 
-            if not done:
+            if done:
                 targets[i, action] = reward + gamma * np.amax(Q_sa[0])
             else:
                 targets[i, action] = reward
@@ -114,3 +114,18 @@ for episode in range(num_episode):
         history = model.train_on_batch(inputs, targets)
         print('loss: {}, acc: {}'.format(history[0], history[1]))
         model.save_weights(model_path)
+
+    #  Play game
+    observation, reward, done, _ = env.step(1)
+    obs = np.expand_dims(observation, axis=0)
+    state = obs
+    tot_reward = 0.0
+    while not done:
+        Q = model.predict(state)
+        print(Q)
+        action = np.argmax(Q[0])
+        observation, reward, done, info = env.step(action)
+        obs = np.expand_dims(observation, axis=0)
+        state = obs
+        tot_reward += reward
+    print('Game ended! Total reward: {}'.format(tot_reward))

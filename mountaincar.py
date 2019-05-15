@@ -73,8 +73,6 @@ for i in range(0, mb_size):
     targets[i] = model.predict(state)
     Q_sa = model.predict(state_new)
 
-    if reward != -1:
-        print(reward)
     if done:
         targets[i, action] = reward
     else:

@@ -48,18 +48,18 @@ class Controller(object):
         if reward_1 != self.score:
             # positive action
             self.score = reward_1
-            reward = 1
+            reward = 10
             done = False
         else:
             # negative action
-            reward = -1
+            reward = -100
             done = True
 
         # print('reward: {}'.format(reward))
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         image = cv2.resize(image_1, (460, 125))
-
-        image = image/255.0
+        cv2.imshow('demno', image)
+        cv2.waitKey(1)
+        # image = image/255.0
         return image, reward, done, {}
 
     def capture_screen(self):
@@ -70,6 +70,7 @@ class Controller(object):
     def screen_record_efficient(self):
         # 920x250 windowed mode
         img = np.asarray(self.sct.grab(self.mon))
+        img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
         return img
 
     @staticmethod
