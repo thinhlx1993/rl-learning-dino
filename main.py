@@ -38,7 +38,7 @@ model.load_weights(model_path)
 # FIRST STEP: Knowing what each action does (Observing)
 
 # Parameters
-observetime = 50  # Number of timesteps we will be acting on the game and observing results
+observetime = 200  # Number of timesteps we will be acting on the game and observing results
 epsilon = 0.6  # Probability of doing a random move
 gamma = 0.9  # Discounted future reward. How much we care about steps further in time
 mb_size = 32  # Learning minibatch size
@@ -112,5 +112,5 @@ for episode in range(num_episode):
 
         # Train network to output the Q function
         history = model.train_on_batch(inputs, targets)
-        print(history)
+        print('loss: {}, acc: {}'.format(history[0], history[1]))
         model.save_weights(model_path)
