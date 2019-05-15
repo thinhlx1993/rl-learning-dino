@@ -30,15 +30,15 @@ model.add(Dense(256, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(128, activation='relu'))
 model.add(Dropout(0.5))
-model.add(Dense(2, activation='sigmoid'))
+model.add(Dense(2, activation='linear'))
 
 model.compile(loss='mse', optimizer='adam', metrics=['accuracy', 'mse'])
-# model.load_weights(model_path)
+model.load_weights(model_path)
 
 # FIRST STEP: Knowing what each action does (Observing)
 
 # Parameters
-observetime = 100  # Number of timesteps we will be acting on the game and observing results
+observetime = 50  # Number of timesteps we will be acting on the game and observing results
 epsilon = 0.6  # Probability of doing a random move
 gamma = 0.9  # Discounted future reward. How much we care about steps further in time
 mb_size = 32  # Learning minibatch size
@@ -99,15 +99,18 @@ for episode in range(num_episode):
             state_new = minibatch[i][3]
             done = minibatch[i][4]
 
+            Q_sa = model.predict(state)
             # Build Bellman equation for the Q function
-            inputs[i:i + 1] = np.expand_dims(state, axis=0)
+            # input_data = np.expand_dims(state, axis=0)
+            inputs[i: i+1] = state
             targets[i] = model.predict(state)
 
-            if done:
-                targets[i, 0] = targets[i, 0] + reward
-                targets[i, 1] = targets[i, 1] + reward
+            if not done:
+                targets[i, action] = reward + gamma * np.amax(Q_sa[0])
+            else:
+                targets[i, action] = reward
 
         # Train network to output the Q function
         history = model.train_on_batch(inputs, targets)
-        print('loss: {}, acc: {}'.format(history[0], history[1]))
+        print(history)
         model.save_weights(model_path)

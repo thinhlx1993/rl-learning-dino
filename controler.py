@@ -48,11 +48,11 @@ class Controller(object):
         if reward_1 != self.score:
             # positive action
             self.score = reward_1
-            reward = 0.1
+            reward = 1
             done = False
         else:
             # negative action
-            reward = -0.1
+            reward = -1
             done = True
 
         # print('reward: {}'.format(reward))
