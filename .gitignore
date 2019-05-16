@@ -159,5 +159,5 @@ venv.bak/
 .mypy_cache/
 
 observable
-saved_model_1.h5
+dino_game/saved_model_1.h5
 .idea

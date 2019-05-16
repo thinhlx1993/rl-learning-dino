@@ -1,7 +1,4 @@
-import os
-from PIL import Image
 import subprocess
-from controler import Controller
 
 import cv2
 
