@@ -41,7 +41,7 @@ class Controller(object):
         self.bg_x2 = (self.display_width / 2) - (360 / 2)
         self.bg_y1 = 0
         self.bg_y2 = -600
-        self.bg_speed = 12
+        self.bg_speed = 30
         self.bg_speed_change = 0
         self.car_x = ((self.display_width / 2) - (self.car_width / 2))
         self.car_y = (self.display_height - self.car_height)
@@ -53,7 +53,7 @@ class Controller(object):
         self.thing_starty = -600
         self.thingw = 50
         self.thingh = 100
-        self.thing_speed = 3
+        self.thing_speed = 15
 
     def reset(self):
         """
@@ -65,7 +65,7 @@ class Controller(object):
         self.bg_x2 = (self.display_width / 2) - (360 / 2)
         self.bg_y1 = 0
         self.bg_y2 = -600
-        self.bg_speed = 12
+        self.bg_speed = 30
         self.bg_speed_change = 0
         self.car_x = ((self.display_width / 2) - (self.car_width / 2))
         self.car_y = (self.display_height - self.car_height)
@@ -77,7 +77,7 @@ class Controller(object):
         self.thing_starty = -600
         self.thingw = 50
         self.thingh = 100
-        self.thing_speed = 3
+        self.thing_speed = 15
         self.count = 0
 
     def step(self, action):
@@ -168,12 +168,9 @@ class Controller(object):
 
     @staticmethod
     def calculate_reward(done, action):
-        reward = -10
+        reward = -100
         if not done:
-            if action == 0:
-                reward = 10
-            else:
-                reward = 5
+            reward = 1
 
         return reward
 

@@ -4,32 +4,31 @@ from keras.layers import Dense, Flatten, Conv2D, MaxPooling2D, Dropout
 from collections import deque  # For storing moves
 from envs import Controller
 import numpy as np
+from keras.applications import InceptionResNetV2
+from keras.layers import Input
 from sklearn.model_selection import train_test_split
 import time
 import random  # For sampling batches from the observations
 
-env = Controller()  # Choose game (any in the gym should work)
-model_path = 'saved_model.h5'
 
+model_path = 'saved_model.h5'
 
 # Create network. Input is two consecutive game states, output is Q-values of the possible moves.
 model = Sequential()
-model.add(Conv2D(32, (3, 3), kernel_initializer='uniform', activation='relu', input_shape=(160, 160, 3)))
-model.add(Conv2D(32, (3, 3), kernel_initializer='uniform', activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Dropout(0.25))
-
-model.add(Conv2D(64, (3, 3), kernel_initializer='uniform', activation='relu'))
-model.add(Conv2D(64, (3, 3), kernel_initializer='uniform', activation='relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
-model.add(Dropout(0.25))
-
+input_tensor = Input(shape=(160, 160, 3))
+inception_model = InceptionResNetV2(include_top=False, weights='imagenet', input_tensor=input_tensor)
+model.add(inception_model)
 model.add(Flatten())
 model.add(Dense(256, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(128, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(3, activation='linear'))
+
+# first: train only the top layers (which were randomly initialized)
+# i.e. freeze all convolutional InceptionV3 layers
+for layer in inception_model.layers:
+    layer.trainable = False
 
 model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
 
@@ -38,10 +37,11 @@ model.load_weights(model_path)
 # FIRST STEP: Knowing what each action does (Observing)
 
 # Parameters
-observetime = 1000  # Number of timesteps we will be acting on the game and observing results
+env = Controller()  # Choose game (any in the gym should work)
+observetime = 500  # Number of timesteps we will be acting on the game and observing results
 epsilon = 0.7  # Probability of doing a random move
 gamma = 0.9  # Discounted future reward. How much we care about steps further in time
-mb_size = 500  # Learning minibatch size
+mb_size = 320  # Learning minibatch size
 num_episode = 10000
 
 
@@ -52,12 +52,12 @@ for episode in range(num_episode):
     first_obs = np.expand_dims(observation, axis=0)
     state = first_obs
     for t in range(observetime):
-        # if np.random.rand() <= epsilon:
-        action = np.random.randint(0, 3, size=1)[0]  # jump or not
-        # else:
-        #     Q = model.predict(state)  # Q-values predictions
-        #     print(Q, np.argmax(Q[0]))
-        #     action = np.argmax(Q[0])  # Move with highest Q-value is the chosen one
+        if np.random.rand() <= epsilon:
+            action = np.random.randint(0, 3, size=1)[0]  # jump or not
+        else:
+            Q = model.predict(state)  # Q-values predictions
+            print(Q, np.argmax(Q[0]))
+            action = np.argmax(Q[0])  # Move with highest Q-value is the chosen one
 
         # See state of the game, reward... after performing the action
         observation_new, reward, done, _ = env.step(action)
@@ -78,12 +78,12 @@ for episode in range(num_episode):
         inputs = np.zeros(inputs_shape)
         targets = np.zeros((mb_size, 3))
 
-        for i in range(0, mb_size):
+        for i in range(0, mb_size-1):
             state = minibatch[i][0]
             action = minibatch[i][1]
-            reward = minibatch[i][2]
+            reward = minibatch[i+1][2]
             state_new = minibatch[i][3]
-            done = minibatch[i][4]
+            done = minibatch[i+1][4]
 
             Q_sa = model.predict(state)
             # Build Bellman equation for the Q function
