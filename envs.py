@@ -165,8 +165,8 @@ class Controller(object):
 
         self.pygame.display.update()  # update the screen
         self.clock.tick(24)  # frame per sec
-        data = pygame.image.tostring(self.gameDisplay, 'RGB')
-        img = Image.frombytes('RGB', (800, 600), data)
+        # data = pygame.image.tostring(self.gameDisplay, 'RGB')
+        # img = Image.frombytes('RGB', (800, 600), data)
         # observable = img.crop((290, 0, 510, 570))
         # basewidth = 110
         # wpercent = (basewidth / float(observable.size[0]))
