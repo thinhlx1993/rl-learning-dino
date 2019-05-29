@@ -1,4 +1,6 @@
 import time
+from io import BytesIO
+
 import cv2
 import numpy as np
 import pytesseract
@@ -41,7 +43,7 @@ class Controller(object):
         self.bg_x2 = (self.display_width / 2) - (360 / 2)
         self.bg_y1 = 0
         self.bg_y2 = -600
-        self.bg_speed = 30
+        self.bg_speed = 10
         self.bg_speed_change = 0
         self.car_x = ((self.display_width / 2) - (self.car_width / 2))
         self.car_y = (self.display_height - self.car_height)
@@ -65,7 +67,7 @@ class Controller(object):
         self.bg_x2 = (self.display_width / 2) - (360 / 2)
         self.bg_y1 = 0
         self.bg_y2 = -600
-        self.bg_speed = 30
+        self.bg_speed = 10
         self.bg_speed_change = 0
         self.car_x = ((self.display_width / 2) - (self.car_width / 2))
         self.car_y = (self.display_height - self.car_height)
@@ -80,51 +82,60 @@ class Controller(object):
         self.thing_speed = 15
         self.count = 0
 
-    def step(self, action):
+    def step(self, action, show_capture=True, ai_control=False):
         done = False
-        observable = None
-
-        # manual control
-        # for event in pygame.event.get():
-        #     if event.type == pygame.QUIT:
-        #         done = True
-        #         pygame.quit()
-        #         quit()
-        #
-        #     if event.type == pygame.KEYDOWN:
-        #         if event.key == pygame.K_LEFT:
-        #             car_x_change = -5
-        #         elif event.key == pygame.K_RIGHT:
-        #             car_x_change = 5
-        #
-        #     if event.type == pygame.KEYUP:
-        #         if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
-        #             car_x_change = 0
-
-        # auto control
         car_x_change = 0
-        if action == 1:
-            car_x_change = 5
-        elif action == 2:
-            car_x_change = -5
+        reward = 1
+        # manual control
+
+        if not ai_control:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    done = True
+                    pygame.quit()
+                    quit()
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LEFT:
+                        car_x_change = -10
+                        action = 2
+                    elif event.key == pygame.K_RIGHT:
+                        car_x_change = 10
+                        action = 1
+
+                if event.type == pygame.KEYUP:
+                    if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
+                        car_x_change = 0
+                        action = 0
+        else:
+            # auto control
+            car_x_change = 0
+            if action == 1:
+                car_x_change = 10  # turn right
+            elif action == 2:
+                car_x_change = -10  # turn left
 
         self.car_x += car_x_change
 
         if self.car_x > self.road_end_x - self.car_width:
             self.crash(self.car_x, self.car_y)
             done = True
+            reward = -10
         if self.car_x < self.road_start_x:
             self.crash(self.car_x - self.car_width, self.car_y)
             done = True
+            reward = -10
 
         if self.car_y < self.thing_starty + self.thingh:
             if self.thing_startx <= self.car_x <= self.thing_startx + self.thingw:
                 self.crash(self.car_x - 25, self.car_y - self.car_height / 2)
                 done = True
+                reward = -100
 
             if self.thing_startx <= self.car_x + self.car_width <= self.thing_startx + self.thingw:
                 self.crash(self.car_x, self.car_y - self.car_height / 2)
                 done = True
+                reward = -100
 
         self.gameDisplay.fill(self.green)  # display white background
 
@@ -154,23 +165,28 @@ class Controller(object):
 
         self.pygame.display.update()  # update the screen
         self.clock.tick(24)  # frame per sec
-        pygame.image.save(self.gameDisplay, "screenshot.jpeg")
-        observable = cv2.imread('screenshot.jpeg', 1)
-        observable = observable[250:570, 290:510]
-        cv2.imwrite('save.png', observable)
-        observable = cv2.resize(observable, (160, 160))
+        data = pygame.image.tostring(self.gameDisplay, 'RGB')
+        img = Image.frombytes('RGB', (800, 600), data)
+        observable = img.crop((290, 0, 510, 570))
+        basewidth = 110
+        wpercent = (basewidth / float(observable.size[0]))
+        hsize = int((float(observable.size[1]) * float(wpercent)))
+        observable = observable.resize((basewidth, hsize), Image.ANTIALIAS)
+        observable = np.asarray(observable)
         observable = observable / 255.
-        reward = self.calculate_reward(done, action)
-        return observable, reward, done, {}
+        # reward = self.calculate_reward(done, action)
+        return observable, reward, done, action
 
-    def env(self):
-        pass
+    def create_opencv_image_from_stringio(self, img_stream, cv2_img_flag=0):
+        img_stream.seek(0)
+        img_array = np.asarray(bytearray(img_stream.read()), dtype=np.float16)
+        return cv2.imdecode(img_array, cv2_img_flag)
 
     @staticmethod
     def calculate_reward(done, action):
-        reward = -100
-        if not done:
-            reward = 1
+        reward = 1
+        if done:
+            reward = -10
 
         return reward
 
@@ -245,3 +261,19 @@ class Controller(object):
         self.pygame.display.update()
         time.sleep(2)
         # self.gameloop()  # for restart the game
+
+    def playgame(self, model):
+        self.reset()
+        observation, reward, done, _ = self.step(1)
+        observation = np.expand_dims(observation, axis=0)
+        tot_reward = 0.0
+        state_predict = observation
+        while not done:
+            Q = model.predict(state_predict)
+            action = np.argmax(Q[0])
+            print(Q[0], action)
+            observation, reward, done, info = self.step(action, ai_control=True)
+            obs_new = np.expand_dims(observation, axis=0)
+            state_predict = obs_new
+            tot_reward += reward
+        print('Game ended! Total reward: {}'.format(tot_reward))

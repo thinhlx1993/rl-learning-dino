@@ -3,5 +3,6 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/car_racing" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/maze/pymaze2" vcs="Git" />
   </component>
 </project>
