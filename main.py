@@ -22,28 +22,27 @@ gamma = 0.9  # Discounted future reward. How much we care about steps further in
 mb_size = 384  # Learning minibatch size
 num_episode = 10000
 action_space = 3  # 0 is go straight, 1 is turn left, 2 is turn right
-
+state_size = ()
 # Create network. Input is two consecutive game states, output is Q-values of the possible moves.
 model = Sequential()
-input_tensor = Input(shape=(285, 110, 3))
-inception_model = NASNetLarge(include_top=False, weights='imagenet', input_tensor=input_tensor)
-model.add(inception_model)
-model.add(Flatten())
-model.add(Dense(512, activation='relu'))
-model.add(BatchNormalization())
-model.add(Dropout(0.25))
-model.add(Dense(128, activation='relu'))
-model.add(BatchNormalization())
-model.add(Dropout(0.25))
+# input_tensor = Input(shape=(285, 110, 3))
+# inception_model = NASNetMobile(include_top=False, weights='imagenet', input_tensor=input_tensor)
+# model.add(inception_model)
+# model.add(Flatten())
+# model.add(Dense(512, activation='relu'))
+# model.add(BatchNormalization())
+# model.add(Dropout(0.25))
+model.add(Dense(24, activation='relu', input_dim=4))
+model.add(Dense(24, activation='relu'))
 model.add(Dense(3, activation='linear'))
 
 # first: train only the top layers (which were randomly initialized)
 # i.e. freeze all convolutional InceptionV3 layers
-for layer in inception_model.layers:
-    layer.trainable = False
+# for layer in inception_model.layers:
+#     layer.trainable = False
 
 model.compile(loss='mse', optimizer='adam')
-model.load_weights(model_path)
+# model.load_weights(model_path)
 print(model.summary())
 #
 # FIRST STEP: Knowing what each action does (Observing)
@@ -67,7 +66,7 @@ for episode in range(num_episode):
         observation_new, reward, done, action_step = env.step(action, ai_control=True)
         if reward:
             # Update the input with the new state of the game
-            state_new = state = np.expand_dims(observation_new, axis=0)
+            state_new = np.expand_dims(observation_new, axis=0)
             D.append((state, action_step, reward, state_new, done))  # 'Remember' action and consequence
             state = state_new  # Update state
             if done:

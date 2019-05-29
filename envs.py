@@ -167,14 +167,15 @@ class Controller(object):
         self.clock.tick(24)  # frame per sec
         data = pygame.image.tostring(self.gameDisplay, 'RGB')
         img = Image.frombytes('RGB', (800, 600), data)
-        observable = img.crop((290, 0, 510, 570))
-        basewidth = 110
-        wpercent = (basewidth / float(observable.size[0]))
-        hsize = int((float(observable.size[1]) * float(wpercent)))
-        observable = observable.resize((basewidth, hsize), Image.ANTIALIAS)
-        observable = np.asarray(observable)
-        observable = observable / 255.
+        # observable = img.crop((290, 0, 510, 570))
+        # basewidth = 110
+        # wpercent = (basewidth / float(observable.size[0]))
+        # hsize = int((float(observable.size[1]) * float(wpercent)))
+        # observable = observable.resize((basewidth, hsize), Image.ANTIALIAS)
+        # observable = np.asarray(observable)
+        # observable = observable / 255.
         # reward = self.calculate_reward(done, action)
+        observable = np.array([self.car_x, self.car_y, self.thing_startx, self.thing_starty])
         return observable, reward, done, action
 
     def create_opencv_image_from_stringio(self, img_stream, cv2_img_flag=0):
