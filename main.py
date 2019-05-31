@@ -14,15 +14,15 @@ from envs import Controller
 
 # Parameter
 model_path = 'saved_model.h5'
-observetime = 400  # Number of timesteps we will be acting on the game and observing results
+observetime = 1000  # Number of timesteps we will be acting on the game and observing results
 epsilon = 1  # Probability of doing a random move
 epsilon_decay = 0.995
 epsilon_min = 0.01
 gamma = 0.9  # Discounted future reward. How much we care about steps further in time
-mb_size = 384  # Learning minibatch size
+mb_size = 900  # Learning minibatch size
 num_episode = 10000
 action_space = 3  # 0 is go straight, 1 is turn left, 2 is turn right
-state_size = ()
+state_size = 4
 # Create network. Input is two consecutive game states, output is Q-values of the possible moves.
 model = Sequential()
 # input_tensor = Input(shape=(285, 110, 3))
@@ -32,9 +32,9 @@ model = Sequential()
 # model.add(Dense(512, activation='relu'))
 # model.add(BatchNormalization())
 # model.add(Dropout(0.25))
-model.add(Dense(24, activation='relu', input_dim=4))
+model.add(Dense(32, activation='relu', input_dim=state_size))
 model.add(Dense(24, activation='relu'))
-model.add(Dense(3, activation='linear'))
+model.add(Dense(action_space, activation='linear'))
 
 # first: train only the top layers (which were randomly initialized)
 # i.e. freeze all convolutional InceptionV3 layers
@@ -67,7 +67,7 @@ for episode in range(num_episode):
         if reward:
             # Update the input with the new state of the game
             state_new = np.expand_dims(observation_new, axis=0)
-            D.append((state, action_step, reward, state_new, done))  # 'Remember' action and consequence
+            D.append((state, action, reward, state_new, done))  # 'Remember' action and consequence
             state = state_new  # Update state
             if done:
                 env.reset()  # Restart game if it's finished
@@ -90,8 +90,7 @@ for episode in range(num_episode):
             inputs[i:i + 1] = state
             target = reward
             if not done:
-                target = (reward + gamma *
-                          np.amax(model.predict(state_new)[0]))
+                target = (reward + gamma * np.amax(model.predict(state_new)[0]))
             target_f = model.predict(state)
             target_f[0][action] = target
             targets[i] = target_f[0]
@@ -100,7 +99,7 @@ for episode in range(num_episode):
         X_train, X_test, y_train, y_test = train_test_split(inputs, targets, test_size=0.25)
 
         # Train network to output the Q function
-        model.fit(X_train, y_train, batch_size=10, epochs=1, verbose=1)
+        model.fit(X_train, y_train, batch_size=32, epochs=10, verbose=1)
         print(model.evaluate(X_test, y_test))
         model.save_weights(model_path)
         if epsilon > epsilon_min:

@@ -85,7 +85,7 @@ class Controller(object):
     def step(self, action, show_capture=True, ai_control=False):
         done = False
         car_x_change = 0
-        reward = 1
+        reward = 5 if action == 0 else 1
         # manual control
 
         if not ai_control:
@@ -120,11 +120,11 @@ class Controller(object):
         if self.car_x > self.road_end_x - self.car_width:
             self.crash(self.car_x, self.car_y)
             done = True
-            reward = -10
+            reward = -50
         if self.car_x < self.road_start_x:
             self.crash(self.car_x - self.car_width, self.car_y)
             done = True
-            reward = -10
+            reward = -50
 
         if self.car_y < self.thing_starty + self.thingh:
             if self.thing_startx <= self.car_x <= self.thing_startx + self.thingw:
