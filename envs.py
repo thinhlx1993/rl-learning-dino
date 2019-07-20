@@ -1,12 +1,12 @@
 import time
-from io import BytesIO
-
 import cv2
 import numpy as np
-import pytesseract
-from PIL import Image
 import pygame
 import random
+
+from PIL import Image
+from keras.layers import Input, Dense, Conv2D, MaxPooling2D, UpSampling2D, Flatten
+from keras.models import Model, Sequential
 
 
 class Controller(object):
@@ -57,6 +57,10 @@ class Controller(object):
         self.thingh = 100
         self.thing_speed = 15
 
+        # init models
+        self.autoencoder, self.encoder = self.build_autoencoder()
+        self.actor = self.build_actor(4, 3)
+
     def reset(self):
         """
         Reset env when game is done
@@ -82,10 +86,63 @@ class Controller(object):
         self.thing_speed = 15
         self.count = 0
 
+    def build_autoencoder(self):
+        input_img = Input(shape=(286, 110, 3))  # adapt this if using `channels_first` image data format
+
+        x = Conv2D(16, (4, 4), activation='relu', padding='same')(input_img)
+        x = MaxPooling2D((2, 2), padding='same')(x)
+        x = Conv2D(8, (2, 2), activation='relu', padding='same')(x)
+        x = MaxPooling2D((2, 2), padding='same')(x)
+        x = Conv2D(8, (2, 2), activation='relu', padding='same')(x)
+        x = MaxPooling2D((2, 2), padding='same')(x)
+        x = Conv2D(2, (2, 2), activation='relu', padding='same')(x)
+        encoded = MaxPooling2D((2, 2), padding='same', name='encoder')(x)
+
+        # at this point the representation is (4, 4, 8) i.e. 128-dimensional
+        x = Conv2D(2, (2, 2), activation='relu', padding='same')(encoded)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(8, (2, 2), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(8, (2, 2), activation='relu', padding='same')(x)
+        x = UpSampling2D((2, 2))(x)
+        x = Conv2D(16, (2, 2), activation='relu')(x)
+        x = UpSampling2D((2, 2))(x)
+        decoded = Conv2D(3, (4, 4), activation='sigmoid', padding='same')(x)
+
+        autoencoder = Model(input_img, decoded)
+        autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
+        encoder = Model(input_img, encoded)
+        return autoencoder, encoder
+
+    def build_actor(self, action_space, state_size):
+        # Create network. Input is two consecutive game states, output is Q-values of the possible moves.
+        model = Sequential()
+        model.add(Conv2D(16, (2, 2), activation='relu', input_shape=(18, 7, 2)))
+        model.add(Flatten())
+        model.add(Dense(32, activation='relu'))
+        model.add(Dense(12, activation='relu'))
+        model.add(Dense(3, activation='linear'))
+
+        # first: train only the top layers (which were randomly initialized)
+        # i.e. freeze all convolutional InceptionV3 layers
+        # for layer in inception_model.layers:
+        #     layer.trainable = False
+
+        model.compile(loss='mse', optimizer='adam')
+        # model.load_weights(model_path)
+        return model
+
+    def _train_autoencoder(self, x_train):
+        self.autoencoder.fit(
+            x_train, x_train,
+            epochs=1,
+            verbose=1
+        )
+
     def step(self, action, show_capture=True, ai_control=False):
         done = False
         car_x_change = 0
-        reward = 5 if action == 0 else 1
+        reward = 2 if action == 0 else 1
         # manual control
 
         if not ai_control:
@@ -120,22 +177,22 @@ class Controller(object):
         if self.car_x > self.road_end_x - self.car_width:
             self.crash(self.car_x, self.car_y)
             done = True
-            reward = -50
+            reward = -5
         if self.car_x < self.road_start_x:
             self.crash(self.car_x - self.car_width, self.car_y)
             done = True
-            reward = -50
+            reward = -5
 
         if self.car_y < self.thing_starty + self.thingh:
             if self.thing_startx <= self.car_x <= self.thing_startx + self.thingw:
                 self.crash(self.car_x - 25, self.car_y - self.car_height / 2)
                 done = True
-                reward = -100
+                reward = -10
 
             if self.thing_startx <= self.car_x + self.car_width <= self.thing_startx + self.thingw:
                 self.crash(self.car_x, self.car_y - self.car_height / 2)
                 done = True
-                reward = -100
+                reward = -10
 
         self.gameDisplay.fill(self.green)  # display white background
 
@@ -165,17 +222,20 @@ class Controller(object):
 
         self.pygame.display.update()  # update the screen
         self.clock.tick(24)  # frame per sec
-        # data = pygame.image.tostring(self.gameDisplay, 'RGB')
-        # img = Image.frombytes('RGB', (800, 600), data)
-        # observable = img.crop((290, 0, 510, 570))
-        # basewidth = 110
+        data = pygame.image.tostring(self.gameDisplay, 'RGB')
+        img = Image.frombytes('RGB', (800, 600), data)
+        observable = img.crop((290, 0, 510, 570))
+        basewidth = 110
+        baseheight = 286
         # wpercent = (basewidth / float(observable.size[0]))
         # hsize = int((float(observable.size[1]) * float(wpercent)))
-        # observable = observable.resize((basewidth, hsize), Image.ANTIALIAS)
-        # observable = np.asarray(observable)
-        # observable = observable / 255.
-        # reward = self.calculate_reward(done, action)
-        observable = np.array([self.car_x, self.car_y, self.thing_startx, self.thing_starty])
+        observable = observable.resize((basewidth, baseheight), Image.ANTIALIAS)
+        observable = np.asarray(observable)
+        observable = observable / 255.
+        observable = np.expand_dims(observable, axis=0)
+        self._train_autoencoder(observable)
+        observable = self.encoder.predict(observable)
+        # observable = np.array([self.car_x, self.car_y, self.thing_startx, self.thing_starty])
         return observable, reward, done, action
 
     def create_opencv_image_from_stringio(self, img_stream, cv2_img_flag=0):
@@ -257,24 +317,22 @@ class Controller(object):
         self.gameDisplay.blit(text_surface, text_rectangle)
 
     def crash(self, x, y):
-        self.gameDisplay.blit(self.crash_img, (x, y))
-        self.message_display("You Crashed", 115, self.display_width / 2, self.display_height / 2)
+        # self.gameDisplay.blit(self.crash_img, (x, y))
+        # self.message_display("You Crashed", 115, self.display_width / 2, self.display_height / 2)
         self.pygame.display.update()
         time.sleep(2)
         # self.gameloop()  # for restart the game
 
-    def playgame(self, model):
+    def playgame(self):
         self.reset()
         observation, reward, done, _ = self.step(1)
-        observation = np.expand_dims(observation, axis=0)
         tot_reward = 0.0
         state_predict = observation
         while not done:
-            Q = model.predict(state_predict)
+            Q = self.actor.predict(state_predict)
             action = np.argmax(Q[0])
             print(Q[0], action)
-            observation, reward, done, info = self.step(action, ai_control=True)
-            obs_new = np.expand_dims(observation, axis=0)
-            state_predict = obs_new
+            observation_new, reward, done, info = self.step(action, ai_control=True)
+            state_predict = observation_new
             tot_reward += reward
         print('Game ended! Total reward: {}'.format(tot_reward))
