@@ -3,7 +3,7 @@ from io import BytesIO
 
 import cv2
 import numpy as np
-import pytesseract
+# import pytesseract
 from PIL import Image
 import pygame
 import random
