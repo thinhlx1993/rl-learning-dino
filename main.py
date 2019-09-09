@@ -1,6 +1,7 @@
 # INITIALIZATION: libraries, parameters, network...
 import random  # For sampling batches from the observations
 import sys
+import time
 
 import numpy as np
 
@@ -118,6 +119,7 @@ def training():
 def testing():
     while True:
         env.reset()  # Game begins
+        time.sleep(5)
         env.playgame(model)
 
 
